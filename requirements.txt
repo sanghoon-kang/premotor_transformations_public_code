@@ -2,8 +2,8 @@
 #
 # These are everything the analysis scripts import. The full analysis
 # environment is much larger, but the extra packages (nilearn, nibabel,
-# rsatoolbox, templateflow, antspy) belong to preprocessing and first-level
-# fitting, which this repository does not run.
+# rsatoolbox, templateflow, antspy) belong to analysis_pipeline/subject_level/
+# and image_processing_pipeline/, which run on the images and are not run here.
 #
 # Versions are the ones the reported results were produced under, taken from
 # the analysis environment (mrdecode).
