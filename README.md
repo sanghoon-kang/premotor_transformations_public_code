@@ -1,6 +1,6 @@
 # premotor_transformations_public_code
 
-Subject-level data and analysis code for Kang, Trach, & McDougle (2026), *Abstract representations of sensorimotor transformations in human premotor cortex*. The code regenerates the statistics reported in the paper and records how they were produced. It does not include figure code.
+Subject-level data and analysis code for Kang, Trach, & McDougle (2026), *Abstract representations of sensorimotor transformations in human premotor cortex*. The code regenerates the statistics reported in the paper and records how they were produced.
 
 ## Files
 
