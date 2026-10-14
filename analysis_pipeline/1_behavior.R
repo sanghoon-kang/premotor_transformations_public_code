@@ -39,9 +39,7 @@ wide_by_condition <- function(d, value) {
   w
 }
 
-cat("=====================================================================\n")
 cat("Behavioral results: Figure 2\n")
-cat("=====================================================================\n")
 cat(sprintf("  %d trials, %d subjects\n\n",
             nrow(b), length(unique(b$subject))))
 

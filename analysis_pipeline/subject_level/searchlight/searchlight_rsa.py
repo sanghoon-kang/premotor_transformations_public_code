@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Whole-brain searchlight RSA for one subject (Figs 6 and S5).
+"""Whole-brain searchlight RSA for one subject (Figs 6 and S6).
 Usage: python searchlight_rsa.py <subj> <space_idx> <run_censor_thr> <subj_runs_thr> <event> <censor_label>"""
 # %% load modules and functions
 import sys
@@ -80,7 +80,7 @@ optimal_movement[2, 6] = optimal_movement[6, 2] = 1
 MODEL_NAMES = ["task_rule", "goal_location", "optimal_movement", "trial_type"]
 MODEL_MATS  = [task_rule, goal_location, optimal_movement, trial_type]
 
-# %% helpers (same as the ROI analysis)
+# %% helpers
 
 def vec_upper(rdm, include_diag=True):
     """Flatten the upper triangle, optionally with the diagonal."""
@@ -89,27 +89,12 @@ def vec_upper(rdm, include_diag=True):
     return rdm[i, j].astype(float)
 
 
-def zscore_1d(x, eps=1e-12):
-    """z-score a 1D vector."""
-    return (x - x.mean()) / (x.std(ddof=1) + eps)
-
-
-def fit_linear_betas(X_dict, y_vec, standardize=False):
-    """OLS of the data RSM on the model RSMs; returns {name: beta}."""
+def fit_linear_betas(X_dict, y_vec):
+    """OLS of the data RSM on the model RSMs, with an intercept; returns {name: beta}."""
     names = list(X_dict.keys())
-    
     X = np.column_stack([X_dict[n] for n in names]).astype(float)
-    
-    y = y_vec.astype(float)
-    
-    if standardize:
-        X = np.column_stack([zscore_1d(X[:, j]) for j in range(X.shape[1])])
-        y = zscore_1d(y)
-    
-    lr = LinearRegression(fit_intercept=True)  # includes an intercept, as in the ROI analysis
-    
-    lr.fit(X, y)
-
+    lr = LinearRegression(fit_intercept=True)
+    lr.fit(X, y_vec.astype(float))
     return dict(zip(names, lr.coef_.tolist()))
 
 
@@ -226,10 +211,8 @@ print(f"Valid searchlight centers: {len(centers)}")
 # %% per-center rsa function
 
 def rsa_at_center(neigh_idx):
-    """Model betas (absolute, z-scored) for one sphere, or NaNs if it fails."""
-    n_models = len(MODEL_NAMES)
-    nan_out  = (np.full(n_models, np.nan, dtype=np.float32),
-                np.full(n_models, np.nan, dtype=np.float32))
+    """Model betas for one sphere, or NaNs if it fails."""
+    nan_out = np.full(len(MODEL_NAMES), np.nan, dtype=np.float32)
 
     A = avg_odd_full [:, neigh_idx]
     B = avg_even_full[:, neigh_idx]
@@ -244,13 +227,8 @@ def rsa_at_center(neigh_idx):
     if np.any(np.isnan(y_vec)) or np.nanstd(y_vec) < 1e-12:
         return nan_out
 
-    betas_abs_d = fit_linear_betas(X_model_dict, y_vec, standardize=False)
-    betas_z_d   = fit_linear_betas(X_model_dict, y_vec, standardize=True)
-
-    betas_abs = np.array([betas_abs_d[n] for n in MODEL_NAMES], dtype=np.float32)
-    betas_z   = np.array([betas_z_d  [n] for n in MODEL_NAMES], dtype=np.float32)
-
-    return betas_abs, betas_z
+    betas = fit_linear_betas(X_model_dict, y_vec)
+    return np.array([betas[n] for n in MODEL_NAMES], dtype=np.float32)
 
 
 # %% run the searchlight
@@ -266,27 +244,21 @@ results = Parallel(n_jobs=N_JOBS, verbose=5)(
 elapsed = time.time() - start
 print(f"Searchlight complete in {elapsed:.1f} s")
 
-betas_abs_all = np.array([r[0] for r in results])
-betas_z_all   = np.array([r[1] for r in results])
+betas_all = np.array(results)
 
-# %% save one map per model and standardization
+# %% save one map per model
 affine = whole_brain_mask.affine
 
 for m_idx, m_name in enumerate(MODEL_NAMES):
-    for betas_arr, suffix in [(betas_abs_all, "absolute"),
-                               (betas_z_all,   "zscored")]:
-
-        scores_flat          = np.full(mask_flat.shape, np.nan, dtype=np.float32)
-        scores_flat[idx[centers]] = betas_arr[:, m_idx]
-        scores_vol           = scores_flat.reshape(mask_vol.shape)
-
-        out_img  = nib.Nifti1Image(scores_vol, affine)
-        out_path = os.path.join(
-            SEARCHLIGHT_RSA_OUT_DIR,
-            f"searchlight_rsa_{m_name}_{suffix}_{subj_name}_{event}_{censor_label}.nii.gz"
-        )
-        out_img.to_filename(out_path)
-        print(f"Saved -> {out_path}")
+    scores_flat = np.full(mask_flat.shape, np.nan, dtype=np.float32)
+    scores_flat[idx[centers]] = betas_all[:, m_idx]
+    out_img  = nib.Nifti1Image(scores_flat.reshape(mask_vol.shape), affine)
+    out_path = os.path.join(
+        SEARCHLIGHT_RSA_OUT_DIR,
+        f"searchlight_rsa_{m_name}_absolute_{subj_name}_{event}_{censor_label}.nii.gz"
+    )
+    out_img.to_filename(out_path)
+    print(f"Saved -> {out_path}")
 
 print("All outputs written. Done.")
 # %%

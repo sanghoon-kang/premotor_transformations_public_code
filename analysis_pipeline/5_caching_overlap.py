@@ -29,9 +29,7 @@ wide = ctx["delta"].reset_index().pivot(index="subject", columns="critical",
 caching = (wide["uncritical"] - wide["critical"]).rename("caching")
 
 # %% correlations
-print("=" * 70)
 print("Neural overlap vs behavioral caching index (Fig 5c-d)")
-print("=" * 70)
 print()
 
 for roi in config.CACHING_ROIS:

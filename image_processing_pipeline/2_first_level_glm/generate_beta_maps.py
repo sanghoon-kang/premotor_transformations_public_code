@@ -6,14 +6,11 @@ if not sys.warnoptions:
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 import os 
 import nibabel as nib
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
 from nilearn import image
 from nilearn.glm import first_level
-from nilearn.reporting import make_glm_report
-from nilearn.surface import PolyMesh
 
 
 import pickle
@@ -31,7 +28,7 @@ github_dir = "/home/sk2949/project/github/mrdecode/"
 behav_dir = github_dir + "task/data/"
 
 tr = 1.058
-space_list = ["T1w", "MNI152NLin2009cAsym", "fsnative", "fsaverage"]
+space_list = ["T1w", "MNI152NLin2009cAsym"]
 
 if len(sys.argv) > 3:
     subj_name = sys.argv[1]
@@ -49,7 +46,6 @@ else:
 space_idx = int(sys.argv[2])
 space = space_list[space_idx] 
 
-surface = space in ["fsnative", "fsaverage"]
 
     
 if censor_label == "censoring":
@@ -65,7 +61,6 @@ subject = subj_name
 trialwise_onset = gen_trialwise_behav(subject_list=subject_list)
 
 beta_maps = []
-z_maps =[]
 labels = []
 runs = []
 
@@ -77,18 +72,18 @@ Path(subj_output_dir).mkdir(parents=True, exist_ok=True)
 # onsets for this subject
 subject_onset = trialwise_onset.loc[trialwise_onset['subject']==subject]
 
-if subject == "mrd1029":
+if subject == "mrd1029":    # mrd1029's behavioral files are saved under mrd1026
     subject_onset = trialwise_onset.loc[trialwise_onset['subject']=="mrd1026"]
 
-if subject == "mrd1011":
-        subject_onset = trialwise_onset.loc[trialwise_onset['subject']=="mrd"]
+if subject == "mrd1011":    # mrd1011's behavioral files are saved as "mrd"
+    subject_onset = trialwise_onset.loc[trialwise_onset['subject']=="mrd"]
 
 run_num = len(subject_onset['run'].unique())
 if subject in ["mrd1006", "mrd1008"]:
     run_num = 10
 print(f"loading data and confounds for subject {subject}")
 
-func_nii_list, confounds_list, masks_list = load_func_nii(sub=subject, space=space, unique_runs=run_num, surface=surface)
+func_nii_list, confounds_list, masks_list = load_func_nii(sub=subject, space=space, unique_runs=run_num, surface=False)
 
 print("done loading.")
 
@@ -106,7 +101,6 @@ mask_data = mask_img.get_fdata()
 
 # per-run outputs
 subject_beta_maps = []
-subject_z_maps = []
 subject_labels = []
 subject_critical_labels = []
 subject_runs = []
@@ -136,10 +130,6 @@ elif subject == "mrd1008":
 
 print(f"using scans from following runs: {run_list} \n using onsets from the following runs: {run_onset_list}")
 
-if space in ["fsnative", "fsaverage"]:
-    surface_mesh_left = mri_dir + f"sub-{subject}/anat/sub-{subject}_hemi-L_midthickness.surf.gii"
-    surface_mesh_right = mri_dir + f"sub-{subject}/anat/sub-{subject}_hemi-R_midthickness.surf.gii"
-    subject_mesh = PolyMesh(left=surface_mesh_left, right=surface_mesh_right)
 
 for i in range(len(run_list)):
 
@@ -207,24 +197,7 @@ for i in range(len(run_list)):
         
     print("glm fit.")
 
-    contrast_matrix = np.eye(design_matrix.shape[1])
-    print(contrast_matrix)
-    basic_contrast = contrast_matrix[0:5]
-
-    # HTML GLM report
-    report = make_glm_report(
-        glm,
-        contrasts=basic_contrast,
-        bg_img=None
-    )
-
-    report.save_as_html(subj_output_dir+f"{subject}_run_{run+1}_{space}_{event_of_interest}.html")
-    print(f"glm report for first trial saved at {subj_output_dir}.")
-
-    skip = False
-
     run_beta_maps = []
-    run_z_maps = []
     run_labels = []
     run_runs = []
     run_critical_labels = []
@@ -238,9 +211,7 @@ for i in range(len(run_list)):
 
         run_runs.append(run+1)
         trial_number = condition.split("__")[1]
-        beta_map_nii_dir = subj_output_dir+f'{subject}_run{run+1}_trial{trial_number}_{space}_{event_of_interest}.nii'
 
-        trial_z_map = glm.compute_contrast(condition, output_type="z_score")
         trial_beta_map = glm.compute_contrast(condition, output_type="effect_size")
 
         trial_condition_name = condition.split("__")[0]
@@ -248,7 +219,6 @@ for i in range(len(run_list)):
         run_labels.append(trial_condition_name)
 
         run_beta_maps.append(trial_beta_map)
-        run_z_maps.append(trial_z_map)
 
 
     # trial type = task x goal location (mirror goals shifted by 4)
@@ -263,7 +233,6 @@ for i in range(len(run_list)):
     subject_trial_type_labels.append(updated_goal_location_labels)
     subject_labels.append(run_labels)
     subject_beta_maps.append(run_beta_maps)
-    subject_z_maps.append(run_z_maps)
     subject_runs.append(run_runs)
     subject_critical_labels.append(run_critical_labels)
 
@@ -277,8 +246,6 @@ with open(glm_output_dir + f'{subject}_labels.pkl', 'wb') as f:
     pickle.dump(subject_labels, f)
 with open(glm_output_dir + f'{subject}_beta_maps_{space}_{event_of_interest}_{censor_label}.pkl', 'wb') as f:
     pickle.dump(subject_beta_maps, f)
-with open(glm_output_dir + f'{subject}_z_maps_{space}_{event_of_interest}_{censor_label}.pkl', 'wb') as f:
-    pickle.dump(subject_z_maps, f)
 with open(glm_output_dir + f'{subject}_runs.pkl', 'wb') as f:
     pickle.dump(subject_runs, f)    
 with open(glm_output_dir + f'{subject}_critical_labels.pkl', 'wb') as f:

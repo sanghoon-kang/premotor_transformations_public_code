@@ -32,12 +32,10 @@ reduced = np.column_stack([config.MODEL_RDMS[p][config.TRI]
                            for p in config.PREDICTORS if p != "Rot/Ref"])
 
 # %%
-print("=" * 94)
 print("Model comparison: full vs reduced (no Rot/Ref), Fig S1")
-print("=" * 94)
 print(f"{'ROI':<9} {'n':>3} {'adjR2 full':>17} {'adjR2 red':>16} "
-      f"{'ceiling':>8} {'sum dAIC':>9}  evidence")
-print("-" * 94)
+      f"{'ceiling':>8} {'sum dAIC':>9}")
+print("-" * 84)
 
 for roi in config.MAIN_ROIS:
     V = np.vstack([np.load(f)[config.TRI] for f in
@@ -60,18 +58,12 @@ for roi in config.MAIN_ROIS:
 
     # Summed over participants, not averaged.
     total = sum(d_aic)
-    # Burnham & Anderson bands, applied to the summed evidence
-    band = ("very strong" if total > 10 else "strong" if total > 7 else
-            "moderate" if total > 4 else "weak" if total > 2 else "negligible")
 
     print(f"{roi:<9} {len(V):>3} "
           f"{np.mean(adj_f):>10.3f} ±{sem(adj_f):<5.3f} "
           f"{np.mean(adj_r):>9.3f} ±{sem(adj_r):<5.3f} "
           f"{np.mean(ceiling):>8.3f} "
-          f"{total:>9.1f}  {band}")
+          f"{total:>9.1f}")
 
-# Descriptive only, not a significance test.
-print("\nAdjusted R-squared is mean ± 1 s.e.m. across participants (Fig S1a error")
-print("bars); the ceiling is its upper bound. Positive summed delta-AIC favors")
-print("the full model. Bands (Burnham & Anderson): <2 negligible, 2-4 weak,")
-print("4-7 moderate, 7-10 strong, >10 very strong.")
+print("\nAdjusted R-squared: mean ± 1 s.e.m. across participants. "
+      "Positive summed delta-AIC favors the full model.")

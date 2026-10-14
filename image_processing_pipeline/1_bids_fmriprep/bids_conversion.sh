@@ -1,9 +1,9 @@
-# DICOM -> BIDS with heudiconv, one subject at a time.
+# DICOM -> BIDS with heudiconv for one subject (usage: bash bids_conversion.sh <subject>).
 # heudiconv doesn't run in the mrdecode env, so this uses a separate one.
 
 conda activate ycrc_default
 
-subject="mrd1029"
+subject="$1"
 
 # dcm2niix_config.json ignores partial volumes; heuristic.py has to be where heudiconv runs
 

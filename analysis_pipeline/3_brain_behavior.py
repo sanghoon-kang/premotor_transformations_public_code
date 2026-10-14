@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import pearsonr
 
 import config
 
@@ -25,10 +25,7 @@ cell = (b.assign(abs_err=b.initial_heading_deg.abs())
 error = cell.groupby("subject")["abs_err"].mean()
 
 # %% correlations
-print("=" * 70)
 print("Transformation-context coefficient vs absolute initial error (Fig 4c-d)")
-print("=" * 70)
-print()
 
 for roi in BRAIN_BEHAV_ROIS:
     d = betas[betas.roi == roi].set_index("subject")["Rot/Ref"]
@@ -36,19 +33,10 @@ for roi in BRAIN_BEHAV_ROIS:
     x, y = m["Rot/Ref"].to_numpy(), m["error"].to_numpy()
 
     r, p = pearsonr(x, y)
-    rho, p_rho = spearmanr(x, y)
-
-    # Fisher-z CI, matching what cor.test reports
-    z, se = np.arctanh(r), 1 / np.sqrt(len(m) - 3)
-    lo, hi = np.tanh([z - 1.96 * se, z + 1.96 * se])
-
-    print(f"{roi}  (n = {len(m)})")
-    print(f"  Pearson   r = {config.fmt_r(r):>6}, {config.fmt_p(p)}"
-          f"   95% CI [{lo:+.2f}, {hi:+.2f}]")
-    print(f"  Spearman  ρ = {config.fmt_r(rho):>6}, {config.fmt_p(p_rho)}")
-    print()
+    print(f"{roi:<7} (n = {len(m)})  r = {config.fmt_r(r):>6}, {config.fmt_p(p)}")
 
 # %% supplementary ROIs (S1, SPL, hippocampus)
+print()
 # "all ps > X" bound: smallest Pearson p over the six, floored.
 ps = []
 for roi in config.SUPP_ROIS:
@@ -56,6 +44,6 @@ for roi in config.SUPP_ROIS:
     m = pd.concat([d, error.rename("error")], axis=1, join="inner").dropna()
     r, p = pearsonr(m["Rot/Ref"], m["error"])
     ps.append(p)
-    print(f"{roi:<7} (n = {len(m)})  Pearson r = {config.fmt_r(r):>6}, {config.fmt_p(p)}")
+    print(f"{roi:<7} (n = {len(m)})  r = {config.fmt_r(r):>6}, {config.fmt_p(p)}")
 bound = f"{np.floor(min(ps) * 100) / 100:.2f}".replace("0.", ".", 1)
 print(f"  all ps > {bound}")

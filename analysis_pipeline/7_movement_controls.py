@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Movement controls: behavioral vs neural Rot/Ref (Fig S2), and the main RSA
+# Movement controls: behavioral vs neural Rot/Ref (Fig S3), and the main RSA
 # refit with actual movements in place of the Move model.
 
 # %%
@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr, ttest_1samp, t as tdist
+from scipy.stats import ttest_1samp, t as tdist
 from statsmodels.stats.multitest import multipletests
 
 import config
@@ -24,7 +24,7 @@ MODELS = config.MODEL_RDMS
 RULE_POSITION = {"rotation": 0, "reflection": 1, "mirror": 1}
 
 
-# %% ===== Part 1: behavioral vs neural Rot/Ref (Fig S2) =====
+# %% Part 1: behavioral vs neural Rot/Ref (Fig S3)
 def behavioral_rsm(subject):
     """Cross-validated (odd vs even runs) similarity of mean cursor-direction unit vectors."""
     b = behavior[behavior.subject == subject].dropna(
@@ -70,11 +70,7 @@ def rotref_beta(S):
 beh = pd.Series({s: rotref_beta(behavioral_rsm(s)) for s in config.SUBJECTS},
                 name="behavioral")
 
-print("=" * 78)
-print("Behavioral vs neural Rot/Ref coding: Fig S2")
-print("=" * 78)
-print(f"behavioral beta: n = {int(beh.notna().sum())}, "
-      f"mean {beh.mean():.3f}\n")
+print("Behavioral vs neural Rot/Ref coding: Fig S3")
 
 rows = []
 for roi in ROIS:
@@ -101,39 +97,26 @@ for roi in ROIS:
     if ONE_TAILED:
         p_intercept = p_intercept / 2 if intercept > 0 else 1 - p_intercept / 2
 
-    r, p_r = pearsonr(x, y)
-    rows.append(dict(roi=roi, n=n, r=r, p_r=p_r,
+    rows.append(dict(roi=roi, n=n,
                      b1=slope, t_b1=t_slope, p_b1=p_slope,
                      b0=intercept, t_b0=t_intercept, p_b0=p_intercept))
 
 tab = pd.DataFrame(rows)
 
-# %% FDR across ROIs, within each test family
-for col in ("p_r", "p_b1", "p_b0"):
-    tab["q" + col[1:]] = multipletests(tab[col], alpha=config.ALPHA,
-                                       method="fdr_bh")[1]
+# %% FDR across the six ROIs for the intercepts
+tab["q_b0"] = multipletests(tab.p_b0, alpha=config.ALPHA, method="fdr_bh")[1]
 
-print(f"{'ROI':<8} {'n':>3} {'r':>6} {'slope b1':>9} {'p(b1)':>8} "
-      f"{'intercept b0':>13} {'p(b0)':>8}  (b0 "
+print(f"{'ROI':<8} {'n':>3} {'slope b1':>9} {'p(b1)':>8} "
+      f"{'intercept b0':>13} {'p(b0)':>8} {'FDR p(b0)':>11}  (b0 "
       f"{'one' if ONE_TAILED else 'two'}-tailed)")
 print("-" * 78)
 for _, d in tab.iterrows():
-    print(f"{d.roi:<8} {int(d.n):>3} {config.fmt_r(d.r):>6} "
+    print(f"{d.roi:<8} {int(d.n):>3} "
           f"{d.b1:>9.3f} {config.fmt_p(d.p_b1):>8} "
-          f"{d.b0:>13.3f} {config.fmt_p(d.p_b0):>8}")
-
-print("\nFDR-corrected across ROIs:")
-for _, d in tab.iterrows():
-    print(f"  {d.roi:<8} r {config.fmt_p(d.q_r):<11} "
-          f"slope {config.fmt_p(d.q_b1):<11} "
-          f"intercept {config.fmt_p(d.q_b0)}")
-
-print("\nA non-significant slope with a positive intercept means neural")
-print("transformation-context coding is present where behavioral rule")
-print("structure is absent, i.e. not explained by movement differences.")
+          f"{d.b0:>13.3f} {config.fmt_p(d.p_b0):>8} {config.fmt_p(d.q_b0):>11}")
 
 
-# %% ===== Part 2: actual movements in place of the optimal-movement model =====
+# %% Part 2: actual movements in place of the optimal-movement model
 # Otherwise as 2_rsa_stats.py. Optimal hand direction (deg, CONDITIONS order):
 # rotation hand = target + 40, reflection hand = 180 - target.
 TARGET = np.array([70, 110, 250, 290])
@@ -166,15 +149,9 @@ def predictors(subject):
             "Trial": config.MODEL_RDMS["Trial"]}
 
 
-# %% collinearity: does the empirical movement matrix overlap with Rot/Ref?
-r = [np.corrcoef(config.MODEL_RDMS["Rot/Ref"][config.TRI],
-                 MOVE[s][config.TRI])[0, 1] for s in config.SUBJECTS]
-print("\n" + "=" * 78)
+print()
 print("Main RSA refit with actual movements in place of the optimal Move model")
-print("=" * 78)
-print(f"r(Rot/Ref, empirical Move) over the 36 entries: mean {np.mean(r):.2f}, "
-      f"range [{min(r):.2f}, {max(r):.2f}]")
-print("one-sample t vs 0, one-tailed, FDR-corrected across all 16 ROIs\n")
+print("Rot/Ref: one-sample t vs 0, one-tailed, FDR-corrected across all 16 ROIs")
 
 # %% refit
 refit = []
@@ -190,18 +167,15 @@ for s in config.SUBJECTS:
                              **dict(zip(config.PREDICTORS, coef[1:]))))
 betas = pd.DataFrame(refit)
 
-for predictor in ("Rot/Ref", "Move"):
-    out = []
-    for roi in config.ALL_ROIS:
-        v = betas.loc[betas.roi == roi, predictor].to_numpy()
-        t, p = ttest_1samp(v, 0.0, alternative="greater")
-        out.append(dict(roi=roi, n=len(v), t=t, p=p))
-    out = pd.DataFrame(out)
-    out["p_fdr"] = multipletests(out.p, alpha=config.ALPHA, method="fdr_bh")[1]
+out = []
+for roi in config.ALL_ROIS:
+    v = betas.loc[betas.roi == roi, "Rot/Ref"].to_numpy()
+    t, p = ttest_1samp(v, 0.0, alternative="greater")
+    out.append(dict(roi=roi, n=len(v), t=t, p=p))
+out = pd.DataFrame(out)
+out["p_fdr"] = multipletests(out.p, alpha=config.ALPHA, method="fdr_bh")[1]
 
-    print(f"--- {predictor} ---")
-    for _, d in out.iterrows():
-        print(f"  {d.roi:<9} t({int(d.n) - 1}) = {d.t:5.2f}, "
-              f"{config.fmt_p(d.p):<11} FDR {config.fmt_p(d.p_fdr):<11} "
-              f"{'*' if d.p_fdr < config.ALPHA else ''}")
-    print()
+for _, d in out.iterrows():
+    print(f"  {d.roi:<9} t({int(d.n) - 1}) = {d.t:5.2f}, "
+          f"{config.fmt_p(d.p):<11} FDR {config.fmt_p(d.p_fdr):<11} "
+          f"{'*' if d.p_fdr < config.ALPHA else ''}")

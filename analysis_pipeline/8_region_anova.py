@@ -15,9 +15,7 @@ betas = pd.read_csv(os.path.join(config.DATA, "rsa_betas.csv"))
 betas["diff"] = betas["Rot/Ref"] - betas["Move"]
 wide = betas.pivot(index="subject", columns="roi", values="diff")
 
-print("=" * 70)
 print("Context minus movement: 2 (region) x 2 (hemisphere) repeated-measures")
-print("=" * 70)
 print("DV = transformation-context coefficient - movement coefficient\n")
 
 for premotor in ("PMd", "PMv"):

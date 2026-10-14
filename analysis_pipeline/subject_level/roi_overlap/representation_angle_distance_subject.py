@@ -9,32 +9,16 @@ import time
 
 import numpy as np
 import pandas as pd
-import nibabel as nib
-from scipy.stats import rankdata
 
 sys.path.insert(0, "/home/sk2949/project/github/mrdecode/analysis/fmri/glm_mvpa")
 from utils.utils import load_data_for_analysis, get_roi_mask
-from utils.pipeline_config import (cfg, SUBJECT_LIST, ROI_SETS, roi_strings,
-                             roi_family, cli_arg)
+from utils.pipeline_config import cfg, SUBJECT_LIST, roi_strings, cli_arg
 
 # %% config
-ROI_STAGE_SETS = ["main", "supp_cortical", "striatum"]
+ROI_STAGE_SETS = ["main", "supp_cortical"]
 ROI_LIST = roi_strings(ROI_STAGE_SETS)
 
 N_COND = cfg.n_cond
-
-# random 4-way run splits for the split-half reliability of sq_overlap (0 = skip)
-N_SPLIT_REPEATS = 20
-SPLIT_SEED = 0
-
-# optimal movement direction per condition (deg), from the task code
-TARGET_ANGLE = 20
-TARGET_DIR = [(90 - TARGET_ANGLE), (90 + TARGET_ANGLE),
-              (270 - TARGET_ANGLE), (270 + TARGET_ANGLE)]   # T1..T4
-MOVE_DIR = np.array(
-    [(d + 2 * TARGET_ANGLE) % 360 for d in TARGET_DIR] +     # rot T1..T4
-    [(180 - d) % 360 for d in TARGET_DIR]                    # ref T1..T4
-)
 
 # condition weights over rot1-4, ref1-4; W_MOVE is movement with target partialled out (T2/T4 only)
 W_RULE = np.r_[np.ones(4), -np.ones(4)] / 4.0
@@ -78,59 +62,15 @@ def build_vectors(P):
 
 
 def cross_fold_overlap(a_odd, a_even, b_odd, b_even):
-    """sq_overlap = cos1 * cos2 from disjoint folds (unbiased for cos^2), plus signed cos and magnitudes."""
+    """sq_overlap = cos1 * cos2 from disjoint folds (unbiased for cos^2)."""
     denom = np.sqrt((np.linalg.norm(a_odd) * np.linalg.norm(a_even)) *
                     (np.linalg.norm(b_odd) * np.linalg.norm(b_even)))
     if denom <= 0:
-        return (np.nan,) * 6
+        return np.nan
 
     cos1 = (a_odd @ b_even) / denom
     cos2 = (a_even @ b_odd) / denom
-    mag_a = float(a_odd @ a_even)          # cross-validated squared magnitude
-    mag_b = float(b_odd @ b_even)
-    return cos1 * cos2, 0.5 * (cos1 + cos2), cos1, cos2, mag_a, mag_b
-
-
-def reliability(x_odd, x_even, method="cosine"):
-    """Odd/even replication of a vector; default is the uncentered cosine."""
-    a, b = np.asarray(x_odd, float), np.asarray(x_even, float)
-    if method in ("spearman", "pearson"):
-        if method == "spearman":
-            a, b = rankdata(a), rankdata(b)
-        a, b = a - a.mean(), b - b.mean()
-    d = np.linalg.norm(a) * np.linalg.norm(b)
-    return float(a @ b / d) if d > 0 else np.nan
-
-
-def overlap_from_runs(flat, tt_arr, mask_a, mask_b, roi_idx):
-    """sq_overlap computed from two given run subsets. None if a cell is empty."""
-    Pa = fold_patterns(flat, tt_arr, mask_a, roi_idx, N_COND)
-    Pb = fold_patterns(flat, tt_arr, mask_b, roi_idx, N_COND)
-    if Pa is None or Pb is None:
-        return np.nan
-    ra, ma = build_vectors(Pa)
-    rb, mb = build_vectors(Pb)
-    return cross_fold_overlap(ra, rb, ma, mb)[0]
-
-
-def split_half_overlaps(flat, tt_arr, runs, uniq, roi_idx, rng):
-    """Two sq_overlap estimates from disjoint run halves, averaged over random splits."""
-    if N_SPLIT_REPEATS < 1:
-        return np.nan, np.nan
-    a_vals, b_vals = [], []
-    for _ in range(N_SPLIT_REPEATS):
-        r = list(uniq)
-        rng.shuffle(r)
-        q = np.array_split(np.array(r), 4)
-        a = overlap_from_runs(flat, tt_arr, np.isin(runs, q[0]),
-                              np.isin(runs, q[1]), roi_idx)
-        b = overlap_from_runs(flat, tt_arr, np.isin(runs, q[2]),
-                              np.isin(runs, q[3]), roi_idx)
-        if np.isfinite(a) and np.isfinite(b):
-            a_vals.append(a); b_vals.append(b)
-    if not a_vals:
-        return np.nan, np.nan
-    return float(np.mean(a_vals)), float(np.mean(b_vals))
+    return cos1 * cos2
 
 
 # %% run
@@ -148,7 +88,6 @@ def roi_indices(roi, affine, shape):
 
 rows = []
 t_start = time.time()
-_split_rng = np.random.default_rng(SPLIT_SEED)
 
 for subj in SUBJECT_LIST:
     t0 = time.time()
@@ -193,24 +132,8 @@ for subj in SUBJECT_LIST:
         r_odd, m_odd = build_vectors(P_odd)
         r_even, m_even = build_vectors(P_even)
 
-        sq_overlap, cos_mean, cos1, cos2, mag_rule, mag_move = \
-            cross_fold_overlap(r_odd, r_even, m_odd, m_even)
-
-        sq_half_a, sq_half_b = split_half_overlaps(
-            flat, tt_arr, runs, uniq, local, _split_rng)
-
-        rows.append(dict(
-            subject=subj, roi=roi, family=roi_family(roi),
-            n_vox=roi_idx.size,
-            sq_overlap=sq_overlap,
-            cos1=cos1, cos2=cos2, cos_mean=cos_mean,
-            mag_rule=mag_rule, mag_move=mag_move,
-            sq_half_a=sq_half_a, sq_half_b=sq_half_b,
-            rel_rule=reliability(r_odd, r_even),
-            rel_move=reliability(m_odd, m_even),
-            rel_rule_spearman=reliability(r_odd, r_even, "spearman"),
-            rel_move_spearman=reliability(m_odd, m_even, "spearman"),
-        ))
+        rows.append(dict(subject=subj, roi=roi,
+                         sq_overlap=cross_fold_overlap(r_odd, r_even, m_odd, m_even)))
 
     done = SUBJECT_LIST.index(subj) + 1
     el = time.time() - t_start

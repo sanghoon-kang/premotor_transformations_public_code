@@ -18,18 +18,9 @@ fmt_p <- function(p) {
 
 # paired t-test, reported as in the manuscript
 report_paired <- function(x, y, label) {
-  d <- x - y
-  n <- length(d)
   tt <- t.test(x, y, paired = TRUE)
-  cat(sprintf("\n%s\n", label))
-  cat(sprintf("  n          = %d\n", n))
-  cat(sprintf("  mean diff  = %.4f s (SEM %.4f)\n",
-              mean(d), sd(d) / sqrt(n)))
-  cat(sprintf("  95%% CI     = [%.4f, %.4f]\n",
-              tt$conf.int[1], tt$conf.int[2]))
-  cat(sprintf("  Cohen's dz = %.2f\n", mean(d) / sd(d)))
-  cat(sprintf("  t(%d) = %.2f, %s\n",
-              tt$parameter, tt$statistic, fmt_p(tt$p.value)))
+  cat(sprintf("  %s: t(%d) = %.2f, %s\n",
+              label, tt$parameter, tt$statistic, fmt_p(tt$p.value)))
   invisible(tt)
 }
 
@@ -49,12 +40,7 @@ b <- read.csv(behavior_csv, stringsAsFactors = FALSE)
 
 b <- b[!is.na(b$rt), ]
 
-cat("=====================================================================\n")
 cat("Behavioral caching analyses\n")
-cat("=====================================================================\n")
-cat(sprintf("  %d trials, %d subjects\n",
-            nrow(b), length(unique(b$subject))))
-cat("  reminder: critical = MATCHED, uncritical = UNMATCHED\n")
 
 # (1) caching contrast (Fig 5b): |RT_ref - RT_rot| within each trial type
 cell <- aggregate(rt ~ subject + critical + manipulation_type,
@@ -71,24 +57,14 @@ d1 <- reshape(ctx[, c("subject", "critical", "delta")],
 names(d1) <- sub("^delta\\.", "", names(d1))
 d1 <- d1[complete.cases(d1), ]
 
-cat("\n---------------------------------------------------------------------\n")
-cat("(1) Caching contrast: |RT_reflection - RT_rotation|, Fig 5b\n")
-cat("---------------------------------------------------------------------\n")
-cat(sprintf("  matched   M = %.4f s\n", mean(d1$critical)))
-cat(sprintf("  unmatched M = %.4f s\n", mean(d1$uncritical)))
-report_paired(d1$uncritical, d1$critical,
-              "unmatched - matched (positive = consistent with caching)")
+cat("\n(1) Caching contrast: |RT_reflection - RT_rotation|, Fig 5b\n")
+report_paired(d1$uncritical, d1$critical, "unmatched - matched")
 
 # (2) overall RT
 d2 <- wide_means(b, "rt", "critical")
 d2 <- d2[complete.cases(d2), ]
 
-cat("\n---------------------------------------------------------------------\n")
-cat("(2) Overall RT, collapsing across context\n")
-cat("---------------------------------------------------------------------\n")
-cat(sprintf("  matched   M = %.4f s\n", mean(d2$critical)))
-cat(sprintf("  unmatched M = %.4f s\n", mean(d2$uncritical)))
-report_paired(d2$uncritical, d2$critical,
-              "unmatched - matched (positive = matched trials faster)")
+cat("\n(2) Overall RT, collapsing across context\n")
+report_paired(d2$uncritical, d2$critical, "unmatched - matched")
 
 cat("\n")

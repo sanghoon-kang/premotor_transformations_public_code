@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# RSA regression coefficients, Fig 3 (SUPP = True for Fig S4).
+# RSA regression coefficients, Fig 3 (SUPP = True for Fig S5).
 
 
 # %%
@@ -12,15 +12,13 @@ from statsmodels.stats.multitest import multipletests
 
 import config
 
-SUPP = False                    # True -> S1, SPL, hippocampus (Fig S4)
+SUPP = False                    # True -> S1, SPL, hippocampus (Fig S5)
 
 # %%
 rois = config.SUPP_ROIS if SUPP else config.MAIN_ROIS
 df = pd.read_csv(os.path.join(config.DATA, "rsa_betas.csv"))
 
-print("=" * 70)
-print(f"RSA regression coefficients: {'Fig S4' if SUPP else 'Fig 3'}")
-print("=" * 70)
+print(f"RSA regression coefficients: {'Fig S5' if SUPP else 'Fig 3'}")
 print("one-sample t vs 0, one-tailed, FDR-corrected across ROIs\n")
 
 for predictor in config.PREDICTORS:
@@ -29,8 +27,7 @@ for predictor in config.PREDICTORS:
     for roi in config.ALL_ROIS:
         v = df.loc[df.roi == roi, predictor].dropna().to_numpy()
         t, p = stats.ttest_1samp(v, 0.0, alternative="greater")
-        rows.append(dict(roi=roi, n=len(v), M=v.mean(),
-                         dz=v.mean() / v.std(ddof=1), t=t, p=p))
+        rows.append(dict(roi=roi, n=len(v), t=t, p=p))
     full = pd.DataFrame(rows)
     full["p_fdr"] = multipletests(full.p, alpha=config.ALPHA,
                                   method="fdr_bh")[1]
@@ -40,8 +37,7 @@ for predictor in config.PREDICTORS:
     print(f"--- {predictor} ---")
     for _, r in out.iterrows():
         print(f"  {r.roi:<9} t({int(r.n)-1}) = {r.t:5.2f}, "
-              f"{config.fmt_p(r.p):<11} FDR {config.fmt_p(r.p_fdr):<11} "
-              f"dz = {r.dz:5.2f}  {r.sig}")
+              f"{config.fmt_p(r.p):<11} FDR {config.fmt_p(r.p_fdr):<11} {r.sig}")
 
     ns = out[out.p_fdr >= config.ALPHA]
     if len(ns):

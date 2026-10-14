@@ -12,6 +12,7 @@ scipy==1.15.2
 pandas==2.2.3
 statsmodels==0.14.4
 
-# No scikit-learn: 9_mds.py computes classical MDS as a closed-form
-# eigendecomposition in NumPy, so it depends on no MDS implementation and
-# needs no version pinned to stay reproducible.
+# 9_mds.py uses scikit-learn's ClassicalMDS (scikit-learn >= 1.8), which needs
+# Python >= 3.11; the Methods report a separate Python version for MDS for this
+# reason. Under Python 3.10 this line is skipped and only 9_mds.py won't run.
+scikit-learn==1.8.0; python_version >= "3.11"
