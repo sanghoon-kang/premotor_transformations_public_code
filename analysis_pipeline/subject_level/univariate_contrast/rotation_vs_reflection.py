@@ -51,11 +51,11 @@ for s in SUBJECTS:
     contrasts.append(image.mean_img([run_contrast(b, l) for b, l in zip(betas, labels)]))
 
 
-# %% group level: two-sided permutation test, whole brain, cluster-forming p < .05 (Fig S2)
-# and p < .001 (reported in the text). Finished tests are reused.
+# %% group level: two-sided permutation test, whole brain, cluster-forming p < .05 (Fig S2).
+# Finished tests are reused.
 brain = nib.load(tf.get(SPACE, desc="brain", resolution=2.5, suffix="mask", extension="nii.gz"))
 design = pd.DataFrame({"intercept": np.ones(len(contrasts))})
-FORMING_P = {"p05": 0.05, "p001": 0.001}
+FORMING_P = {"p05": 0.05}
 
 for corr, thr in FORMING_P.items():
     fwer_path = os.path.join(OUT_DIR, f"{corr}_t_FWER.nii.gz")

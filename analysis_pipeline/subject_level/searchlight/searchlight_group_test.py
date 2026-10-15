@@ -1,5 +1,5 @@
 # %% group searchlight tests (Figs 6 and S6): one-sided sign-flip permutations, cluster-mass FWER < .05,
-# whole brain, cluster-forming p < .05 (reported) and p < .001 (reported in the text).
+# whole brain, cluster-forming p < .05.
 # Writes the surviving clusters to CLUSTER_DIR and prints each cluster's size, p, location and
 # overlap with the Julich ROIs. Figure code is not included.
 import numpy as np
@@ -37,7 +37,7 @@ for s in subject_list:
 # %% cluster correction (cached in CLUSTER_DIR)
 CLUSTER_DIR = f"{data_dir}/cluster_test"
 os.makedirs(CLUSTER_DIR, exist_ok=True)
-FORMING_P = {"p05": 0.05, "p001": 0.001}
+FORMING_P = {"p05": 0.05}
 N_PERM, ALPHA = 10000, 0.05
 
 
