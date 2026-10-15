@@ -2,7 +2,7 @@
 
 Summarized data and code for Kang, Trach, & McDougle (2026), *Abstract representations of sensorimotor transformations in human premotor cortex*.
 
-- `data/`: subject-level data, released under CC0.
+- `data/`: subject-level data.
 - `analysis_pipeline/`: scripts that reproduce the reported statistics from `data/`.
   - `1_behavior.R`: Fig. 2
   - `2_rsa_stats.py`: Figs. 3, S5
