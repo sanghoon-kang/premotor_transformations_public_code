@@ -8,7 +8,6 @@ import os
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp, t as tdist
-from statsmodels.stats.multitest import multipletests
 
 import config
 
@@ -103,17 +102,14 @@ for roi in ROIS:
 
 tab = pd.DataFrame(rows)
 
-# %% FDR across the six ROIs for the intercepts
-tab["q_b0"] = multipletests(tab.p_b0, alpha=config.ALPHA, method="fdr_bh")[1]
-
 print(f"{'ROI':<8} {'n':>3} {'slope b1':>9} {'p(b1)':>8} "
-      f"{'intercept b0':>13} {'p(b0)':>8} {'FDR p(b0)':>11}  (b0 "
-      f"{'one' if ONE_TAILED else 'two'}-tailed)")
-print("-" * 78)
+      f"{'intercept b0':>13} {'p(b0)':>8}  (b1 two-tailed, b0 "
+      f"{'one' if ONE_TAILED else 'two'}-tailed; uncorrected)")
+print("-" * 66)
 for _, d in tab.iterrows():
     print(f"{d.roi:<8} {int(d.n):>3} "
           f"{d.b1:>9.3f} {config.fmt_p(d.p_b1):>8} "
-          f"{d.b0:>13.3f} {config.fmt_p(d.p_b0):>8} {config.fmt_p(d.q_b0):>11}")
+          f"{d.b0:>13.3f} {config.fmt_p(d.p_b0):>8}")
 
 
 # %% Part 2: actual movements in place of the optimal-movement model
@@ -125,7 +121,8 @@ OPTIMAL_HAND = np.r_[(TARGET + 40) % 360, (180 - TARGET) % 360].astype(float)
 
 # %% each participant's movement similarity matrix
 def movement_rsm(subject):
-    """cos(theta_i - theta_j) between circular-mean hand directions."""
+    """cos(theta_i - theta_j) between circular-mean hand directions (all runs; a predictor,
+    so not split by runs)."""
     b = behavior[behavior.subject == subject].dropna(
         subset=["initial_heading_deg"])
     is_ref = (b.manipulation_type == "mirror").to_numpy()
@@ -151,7 +148,7 @@ def predictors(subject):
 
 print()
 print("Main RSA refit with actual movements in place of the optimal Move model")
-print("Rot/Ref: one-sample t vs 0, one-tailed, FDR-corrected across all 16 ROIs")
+print("Rot/Ref: one-sample t vs 0, one-tailed, uncorrected")
 
 # %% refit
 refit = []
@@ -159,7 +156,7 @@ for s in config.SUBJECTS:
     X = predictors(s)
     D = np.column_stack([np.ones(len(config.TRI[0]))]
                         + [X[p][config.TRI] for p in config.PREDICTORS])
-    for roi in config.ALL_ROIS:
+    for roi in ROIS:
         f = os.path.join(config.DATA, "rsm", f"{s}_{roi.replace(' ', '')}.npy")
         if os.path.exists(f):
             coef = np.linalg.lstsq(D, np.load(f)[config.TRI], rcond=None)[0]
@@ -168,14 +165,12 @@ for s in config.SUBJECTS:
 betas = pd.DataFrame(refit)
 
 out = []
-for roi in config.ALL_ROIS:
+for roi in ROIS:
     v = betas.loc[betas.roi == roi, "Rot/Ref"].to_numpy()
     t, p = ttest_1samp(v, 0.0, alternative="greater")
     out.append(dict(roi=roi, n=len(v), t=t, p=p))
 out = pd.DataFrame(out)
-out["p_fdr"] = multipletests(out.p, alpha=config.ALPHA, method="fdr_bh")[1]
 
 for _, d in out.iterrows():
     print(f"  {d.roi:<9} t({int(d.n) - 1}) = {d.t:5.2f}, "
-          f"{config.fmt_p(d.p):<11} FDR {config.fmt_p(d.p_fdr):<11} "
-          f"{'*' if d.p_fdr < config.ALPHA else ''}")
+          f"{config.fmt_p(d.p)}")

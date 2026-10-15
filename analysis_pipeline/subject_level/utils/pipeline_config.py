@@ -11,7 +11,7 @@ cfg = SimpleNamespace(
     # loading parameters, as in the Methods
     space_idx       = 1,                     # index into SPACE_LIST ("MNI152NLin2009cAsym")
     run_censor_thr  = 70,
-    subj_runs_thr   = 3,
+    subj_runs_thr   = 6,                     # exclude a participant with < 6 of 9 runs left (> 3 runs over run_censor_thr)
     event           = "all",
     censor_label    = "no_censoring",
     normalization   = "run_z",

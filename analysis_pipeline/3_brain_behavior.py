@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 
 import config
 
@@ -33,7 +33,9 @@ for roi in BRAIN_BEHAV_ROIS:
     x, y = m["Rot/Ref"].to_numpy(), m["error"].to_numpy()
 
     r, p = pearsonr(x, y)
-    print(f"{roi:<7} (n = {len(m)})  r = {config.fmt_r(r):>6}, {config.fmt_p(p)}")
+    rho, p_rho = spearmanr(x, y)
+    print(f"{roi:<7} (n = {len(m)})  r = {config.fmt_r(r):>6}, {config.fmt_p(p):<9}"
+          f"  rho = {config.fmt_r(rho):>6}, {config.fmt_p(p_rho)}")
 
 # %% supplementary ROIs (S1, SPL, hippocampus)
 print()
