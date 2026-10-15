@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Whole-brain univariate Rotation vs Reflection control, from the uncensored
-# trial-wise beta maps (Fig S2). Group-level permutation test with FWER < .05; writes the
-# surviving clusters ({corr}_t_FWER.nii.gz) and prints the cluster report.
+# Whole-brain univariate Rotation vs Reflection contrast (Fig S2).
 
 # %%
 import os
@@ -51,8 +49,7 @@ for s in SUBJECTS:
     contrasts.append(image.mean_img([run_contrast(b, l) for b, l in zip(betas, labels)]))
 
 
-# %% group level: two-sided permutation test, whole brain, cluster-forming p < .05 (Fig S2).
-# Finished tests are reused.
+# %% group level: two-sided permutation test, cluster-forming p < .05, cluster-mass FWER < .05
 brain = nib.load(tf.get(SPACE, desc="brain", resolution=2.5, suffix="mask", extension="nii.gz"))
 design = pd.DataFrame({"intercept": np.ones(len(contrasts))})
 FORMING_P = {"p05": 0.05}
@@ -82,9 +79,7 @@ for corr, thr in FORMING_P.items():
                         t.header).to_filename(fwer_path)
 
 
-# %% cluster report: direction, size, cluster p, top Harvard-Oxford regions and overlap with
-# the paper's Julich ROIs. nilearn downloads Harvard-Oxford once; if a compute node has no
-# internet, run the fetch lines once on a login node.
+# %% cluster report
 from scipy import ndimage
 from nilearn import datasets
 

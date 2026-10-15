@@ -1,7 +1,5 @@
 # %% group searchlight tests (Figs 6 and S6): one-sided sign-flip permutations, cluster-mass FWER < .05,
-# whole brain, cluster-forming p < .05.
-# Writes the surviving clusters to CLUSTER_DIR and prints each cluster's size, p, location and
-# overlap with the Julich ROIs. Figure code is not included.
+# cluster-forming p < .05.
 import numpy as np
 from nilearn import image
 import os
@@ -60,9 +58,7 @@ def surviving(model, corr):
         nib.Nifti1Image(t.get_fdata() * surv, t.affine, t.header).to_filename(out)
 
 
-# %% cluster report: size, cluster p, Harvard-Oxford regions (% of the cluster) and overlap
-# with the paper's Julich ROIs. nilearn downloads Harvard-Oxford once; if a compute node has
-# no internet, run the fetch lines once on a login node.
+# %% cluster report
 ROI_DIR = "/home/sk2949/project/github/mrdecode/analysis/fmri/atlas/juelich_atlas"
 ROIS = [f"{r}_{h}_volume" for r in ["M1", "PMd", "PMv", "DLPFC", "LOC", "S1", "SPL", "Hippocampus"]
         for h in ["left", "right"]]

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Classical MDS of group-mean similarity matrices (Figs 4a-b and S4). Needs Python >= 3.11.
+# Classical MDS of group-mean similarity matrices (Figs 4a-b and S4).
 import os
 
 import numpy as np

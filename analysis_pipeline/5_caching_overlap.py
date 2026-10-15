@@ -10,8 +10,7 @@ import config
 behavior = pd.read_csv(os.path.join(config.DATA, "behavior.csv"))
 overlap = pd.read_csv(os.path.join(config.DATA, "overlap.csv"))
 
-# caching index: unmatched minus matched |RT_reflection - RT_rotation|, as in 4_caching_behavior.R
-# (critical = matched, uncritical = unmatched)
+# caching index: unmatched minus matched |RT_reflection - RT_rotation| (critical = matched)
 b = behavior.dropna(subset=["rt"])
 ctx = b.pivot_table(index=["subject", "critical"], columns="manipulation_type",
                     values="rt", aggfunc="mean")

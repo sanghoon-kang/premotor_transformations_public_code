@@ -1,5 +1,4 @@
-"""Shared helpers: first-level design, loading trial-wise betas, ROI masks.
-Paths are the lab cluster's."""
+"""Shared helpers: first-level design, loading trial-wise betas, ROI masks."""
 import numpy as np
 import os
 import nibabel as nib
@@ -63,7 +62,7 @@ def gen_event_regressors(trialwise_onset, run_num, event_of_interest, subject):
 
 
 def make_design_matrix(n_scans, tr, other_regressors, confounds, lsa_regressors=None):
-    """LSA regressors (SPM HRF) plus confounds; drift is handled by the fMRIPrep cosines."""
+    """LSA regressors (SPM HRF) plus confounds."""
     assert other_regressors is None and lsa_regressors is not None
     frame_times = np.arange(n_scans) * tr
     lsa_design = make_first_level_design_matrix(frame_times, lsa_regressors,
@@ -73,7 +72,7 @@ def make_design_matrix(n_scans, tr, other_regressors, confounds, lsa_regressors=
 
 
 def get_roi_mask(roi, atlas, affine, shape, save_dir=None):
-    """Boolean Juelich ROI mask (e.g. "PMd_left_volume") on the data's grid; save_dir is unused."""
+    """Boolean Juelich ROI mask (e.g. "PMd_left_volume") on the data's grid."""
     assert atlas == "juelich", atlas
     atlas_img = nib.load(os.path.join(
         project_dir, f"github/mrdecode/analysis/fmri/atlas/juelich_atlas/{roi}.nii.gz"))

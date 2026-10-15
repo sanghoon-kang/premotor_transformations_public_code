@@ -1,5 +1,4 @@
-# Trial-wise (LSA) first-level GLM for one subject -> trial-wise beta maps.
-# Usage: python generate_beta_maps.py <subj> <space_idx> <event> <censor_label>
+# Trial-wise (LSA) first-level GLM for one subject.
 import warnings
 import sys 
 if not sys.warnoptions:
@@ -109,7 +108,7 @@ subject_trial_type_labels = []
 if subject == "mrd1002":
     run_num = 6
 
-# scan runs (a few subjects have exceptions)
+# scan runs
 run_list = [i+1 for i in range(run_num)]
 if subject == "mrd1002":
     run_list = [2,3,4,5,6,8]
@@ -119,7 +118,7 @@ elif subject == "mrd1008":
     run_list = [2,3,4,5,6,7,8,9,10]
 
 
-# behavior runs, which can differ from the scan runs
+# behavior runs
 run_onset_list = run_list
 if subject == "mrd1002":
     run_onset_list = [1,2,3,4,5,7]

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Behavioral caching (Fig 5b) and overall RT, matched vs unmatched trials (critical = matched).
 
-data_dir <- Find(dir.exists, c(file.path("..", "data"), "data"))   # run from analysis_pipeline/ or the repo root
+data_dir <- Find(dir.exists, c(file.path("..", "data"), "data"))
 b <- read.csv(file.path(data_dir, "behavior.csv"))
 b <- b[!is.na(b$rt), ]
 show <- function(label, tt) cat(label, ": t =", tt$statistic, ", df =", tt$parameter, ", p =", tt$p.value, "\n")

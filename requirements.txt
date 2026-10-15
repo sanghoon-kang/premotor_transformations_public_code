@@ -1,18 +1,5 @@
-# Python 3.10.13, as reported in the Methods.
-#
-# These are everything the analysis scripts import. The full analysis
-# environment is much larger, but the extra packages (nilearn, nibabel,
-# rsatoolbox, templateflow, antspy) belong to analysis_pipeline/subject_level/
-# and image_processing_pipeline/, which run on the images and are not run here.
-#
-# Versions are the ones the reported results were produced under, taken from
-# the analysis environment (mrdecode).
 numpy==2.0.1
 scipy==1.15.2
 pandas==2.2.3
 statsmodels==0.14.4
-
-# 9_mds.py uses scikit-learn's ClassicalMDS (scikit-learn >= 1.8), which needs
-# Python >= 3.11; the Methods report a separate Python version for MDS for this
-# reason. Under Python 3.10 this line is skipped and only 9_mds.py won't run.
 scikit-learn==1.8.0; python_version >= "3.11"

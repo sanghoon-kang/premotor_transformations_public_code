@@ -3,7 +3,6 @@
 import os
 import numpy as np
 
-# data/ sits beside this folder; run from analysis_pipeline/ or the repo root.
 DATA = next(d for d in (os.path.join("..", "data"), "data") if os.path.isdir(d))
 
 # the 27 participants in every analysis

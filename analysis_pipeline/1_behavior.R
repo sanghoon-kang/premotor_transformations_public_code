@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Behavioral results (Fig 2): scanning-phase error, learning slopes, RT/MT, and tutorial learning.
 
-data_dir <- Find(dir.exists, c(file.path("..", "data"), "data"))   # run from analysis_pipeline/ or the repo root
+data_dir <- Find(dir.exists, c(file.path("..", "data"), "data"))
 b <- read.csv(file.path(data_dir, "behavior.csv"))
 tu <- read.csv(file.path(data_dir, "tutorial.csv"))
 

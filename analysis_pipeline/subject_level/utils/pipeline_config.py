@@ -8,10 +8,9 @@ PROJECT_DIR = "/home/sk2949/project/mrdecode/"
 cfg = SimpleNamespace(
     rsa_dir         = os.path.join(PROJECT_DIR, "outputs/rsa/"),
 
-    # loading parameters, as in the Methods
     space_idx       = 1,                     # index into SPACE_LIST ("MNI152NLin2009cAsym")
     run_censor_thr  = 70,
-    subj_runs_thr   = 6,                     # exclude a participant with < 6 of 9 runs left (> 3 runs over run_censor_thr)
+    subj_runs_thr   = 6,
     event           = "all",
     censor_label    = "no_censoring",
     normalization   = "run_z",
@@ -44,7 +43,7 @@ def roi_strings(set_names):
 
 
 def cli_arg(i, default, cast=str):
-    """sys.argv[i] from the shell, otherwise `default` (so the script also runs interactively)."""
+    """sys.argv[i], or `default` when run interactively."""
     import sys
     interactive = "ipykernel" in sys.modules or ("IPython" in sys.modules and hasattr(sys, "ps1"))
     if interactive or len(sys.argv) <= i:

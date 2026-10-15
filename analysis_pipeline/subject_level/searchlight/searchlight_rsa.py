@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Whole-brain searchlight RSA for one subject (Figs 6 and S6).
-Usage: python searchlight_rsa.py <subj> <space_idx> <run_censor_thr> <subj_runs_thr> <event> <censor_label>"""
+"""Whole-brain searchlight RSA for one subject (Figs 6 and S6)."""
 # %% load modules and functions
 import sys
 import os
@@ -187,7 +186,7 @@ print("Building searchlight neighborhoods ...")
 centers_mask, neighbors_mask = get_volume_searchlight(
     mask=mask_vol,
     radius=RADIUS_VOX,
-    threshold=0.5,   # keep centers with >= half the sphere in the brain (default 1.0 drops the outer ~12 mm of brain)
+    threshold=0.5,   # centers with >= half the sphere in the brain
 )
 
 map_flat_to_chan = -np.ones(mask_flat.shape[0], dtype=int)

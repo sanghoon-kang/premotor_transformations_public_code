@@ -1,5 +1,4 @@
-# Per-subject 8x8 cross-validated condition correlation matrices and RSA betas for one ROI (Fig 3).
-# Matrices correlate odd-run vs even-run condition patterns.
+# Per-subject cross-validated (odd vs even runs) similarity matrices and RSA betas for one ROI (Fig 3).
 
 # %% Import modules
 import sys
@@ -19,7 +18,6 @@ project_dir = "/home/sk2949/project/mrdecode/"
 rsa_dir = os.path.join(project_dir, "outputs/rsa/")
 space_list = ["T1w", "MNI152NLin2009cAsym"]
 
-# args: roi space_idx run_censor_thr subj_runs_thr event atlas
 if len(sys.argv) > 2:
     roi = sys.argv[1]
     space = space_list[int(sys.argv[2])]
@@ -98,8 +96,6 @@ def calculate_trialtype_to_trialtype_corr(beta_maps_list, trial_type_labels_list
 
     return correlation_matrix
 
-# Flattens the full 8x8, not the upper triangle. Same coefficients as the 36
-# upper-triangle entries (checked), since Trial + intercept isolate the diagonal.
 def flatten_upper_tri(matrix):
     matrix = matrix.flatten()
     

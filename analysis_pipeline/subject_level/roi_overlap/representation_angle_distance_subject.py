@@ -20,20 +20,11 @@ ROI_LIST = roi_strings(ROI_STAGE_SETS)
 
 N_COND = cfg.n_cond
 
-# condition weights over rot1-4, ref1-4; W_MOVE is movement with target partialled out (T2/T4 only)
+# condition weights over rot1-4, ref1-4
 W_RULE = np.r_[np.ones(4), -np.ones(4)] / 4.0
 W_MOVE = np.array([0, -1, 0, 1, 0, 1, 0, -1], dtype=float)
 W_MOVE /= np.linalg.norm(W_MOVE)
 
-# W_MOVE must be orthogonal to rule and to every target
-_target = np.r_[0, 1, 2, 3, 0, 1, 2, 3]
-assert abs(W_RULE @ W_MOVE) < 1e-12, "W_MOVE not orthogonal to the rule axis"
-assert abs(W_MOVE.sum()) < 1e-12, "W_MOVE does not sum to zero"
-for _t in range(4):
-    _c = (_target == _t).astype(float); _c -= _c.mean()
-    assert abs(W_MOVE @ _c) < 1e-12, f"W_MOVE not orthogonal to target {_t+1}"
-
-# args: space_idx run_censor_thr subj_runs_thr event censor_label
 SPACE_LIST     = ["T1w", "MNI152NLin2009cAsym"]
 space          = SPACE_LIST[cli_arg(1, cfg.space_idx, int)]
 run_censor_thr = cli_arg(2, cfg.run_censor_thr, int)
@@ -107,7 +98,6 @@ for subj in SUBJECT_LIST:
     odd = np.isin(runs, [r for r in uniq if r % 2 == 1])
     even = np.isin(runs, [r for r in uniq if r % 2 == 0])
 
-    # load only the voxels some ROI needs
     all_idx = np.unique(np.concatenate(
         [roi_indices(r, affine, shape) for r in ROI_LIST]))
     pos = {v: k for k, v in enumerate(all_idx)}

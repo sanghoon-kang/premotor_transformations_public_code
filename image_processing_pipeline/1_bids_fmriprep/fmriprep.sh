@@ -5,8 +5,7 @@
 #SBATCH --mem-per-cpu=8GB
 #SBATCH --cpus-per-task=16
 
-# fMRIPrep 23.2.1 for one subject. The command below is the one recorded in the
-# subjects' fMRIPrep reports (fmriprep_aroma/output/sub-<id>.html).
+# fMRIPrep 23.2.1 for one subject.
 
 module load fmriprep
 
