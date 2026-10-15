@@ -1,176 +1,81 @@
 #!/usr/bin/env python3
-# Movement controls: behavioral vs neural Rot/Ref (Fig S3), and the main RSA
-# refit with actual movements in place of the Move model.
-
-# %%
+# Movement controls (Results; Fig S3): neural vs behavioral Rot/Ref coefficients, and the RSA
+# refit with participants' actual hand directions in place of the optimal-movement matrix.
 import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import ttest_1samp, t as tdist
+import statsmodels.api as sm
+from scipy.stats import ttest_1samp
 
 import config
 
-# The motor and premotor ROIs, the only ones this figure reports.
 ROIS = ["L PMd", "R PMd", "L PMv", "R PMv", "L M1", "R M1"]
-ONE_TAILED = True      # the intercept test is directional: neural coding > 0
 
-# initial_heading_deg + target_angle_deg = initial CURSOR direction, not hand.
-behavior = pd.read_csv(os.path.join(config.DATA, "behavior.csv"))
-
-# all four model RDMs, as in the main RSA
-MODELS = config.MODEL_RDMS
-RULE_POSITION = {"rotation": 0, "reflection": 1, "mirror": 1}
+behavior = pd.read_csv(os.path.join(config.DATA, "behavior.csv")).dropna(
+    subset=["initial_heading_deg", "target_angle_deg"])
+behavior["pos"] = (behavior.manipulation_type == "mirror") * 4 + behavior.which_target - 1
 
 
-# %% Part 1: behavioral vs neural Rot/Ref (Fig S3)
+def load_rsm(subject, roi):
+    return np.load(os.path.join(config.DATA, "rsm", f"{subject}_{roi.replace(' ', '')}.npy"))
+
+
+# %% (1) neural vs behavioral Rot/Ref coefficients (Fig S3)
 def behavioral_rsm(subject):
-    """Cross-validated (odd vs even runs) similarity of mean cursor-direction unit vectors."""
-    b = behavior[behavior.subject == subject].dropna(
-        subset=["initial_heading_deg", "target_angle_deg"]).copy()
-    b = b[b.manipulation_type.astype(str).str.strip().str.lower()
-           .isin(RULE_POSITION)]
-    heading = np.deg2rad((b.initial_heading_deg.astype(float)
-                          + b.target_angle_deg.astype(float) + 180.0)
-                         % 360.0 - 180.0)
-    b["pos"] = [RULE_POSITION[str(m).strip().lower()] * 4 + (int(t) - 1)
-                for m, t in zip(b.manipulation_type, b.which_target)]
-    b["fold"] = b.run.astype(int) % 2
-    b["cx"], b["cy"] = np.cos(heading), np.sin(heading)
-
-    mean_vec = {k: g[["cx", "cy"]].mean().to_numpy()
-                for k, g in b.groupby(["pos", "fold"])}
-
-    S = np.full((8, 8), np.nan)
-    for i in range(8):
-        for j in range(8):
-            if all(k in mean_vec for k in [(i, 0), (j, 0), (i, 1), (j, 1)]):
-                S[i, j] = 0.5 * float(mean_vec[(i, 0)] @ mean_vec[(j, 1)]
-                                      + mean_vec[(i, 1)] @ mean_vec[(j, 0)])
-    return S
+    """Odd vs even run similarity of mean initial cursor directions (target + initial error)."""
+    b = behavior[behavior.subject == subject]
+    cursor = np.deg2rad((b.initial_heading_deg + b.target_angle_deg + 180) % 360 - 180)
+    v = pd.DataFrame({"x": np.cos(cursor), "y": np.sin(cursor),
+                      "pos": b.pos, "fold": b.run % 2}).groupby(["fold", "pos"]).mean()
+    odd, even = v.loc[1].to_numpy(), v.loc[0].to_numpy()
+    return 0.5 * (odd @ even.T + even @ odd.T)
 
 
 def rotref_beta(S):
-    """Rot/Ref coefficient, all z-scored (same as fitting with an intercept)."""
-    y = S[config.TRI]
-    X = np.column_stack([M[config.TRI] for M in MODELS.values()])
-    keep = np.isfinite(y)
-    if keep.sum() < 4:
-        return np.nan
-    y, X = y[keep], X[keep]
-
+    """Rot/Ref coefficient with the similarity matrix and model matrices z-scored."""
     z = lambda v: (v - v.mean()) / (v.std() + 1e-12)
-    Xz = np.column_stack([z(X[:, k]) for k in range(X.shape[1])])
-    coef, *_ = np.linalg.lstsq(Xz, z(y), rcond=None)
-    return coef[list(MODELS).index("Rot/Ref")]
+    X = np.column_stack([z(config.MODEL_RDMS[p][config.TRI]) for p in config.PREDICTORS])
+    return np.linalg.lstsq(X, z(S[config.TRI]), rcond=None)[0][0]
 
 
-# %% behavioral beta per subject, neural beta per subject per ROI
-beh = pd.Series({s: rotref_beta(behavioral_rsm(s)) for s in config.SUBJECTS},
-                name="behavioral")
-
-print("Behavioral vs neural Rot/Ref coding: Fig S3")
+behav = pd.Series({s: rotref_beta(behavioral_rsm(s)) for s in config.SUBJECTS})
 
 rows = []
 for roi in ROIS:
-    neu = {}
-    for s in config.SUBJECTS:
-        f = os.path.join(config.DATA, "rsm", f"{s}_{roi.replace(' ', '')}.npy")
-        if os.path.exists(f):
-            neu[s] = rotref_beta(np.load(f))
-    m = pd.concat([beh, pd.Series(neu, name="neural")], axis=1).dropna()
-    x, y = m.behavioral.to_numpy(), m.neural.to_numpy()
-
-    # OLS of neural on raw behavioral beta; x not centered, so b0 = coding at zero behavior.
-    n = len(x)
-    slope, intercept = np.polyfit(x, y, 1)
-    resid = y - (intercept + slope * x)
-    s2 = float(resid @ resid) / (n - 2)
-    xbar, Sxx = x.mean(), float(((x - x.mean()) ** 2).sum())
-    se_slope = np.sqrt(s2 / Sxx)
-    se_intercept = np.sqrt(s2 * (1.0 / n + xbar ** 2 / Sxx))
-
-    t_slope, t_intercept = slope / se_slope, intercept / se_intercept
-    p_slope = 2 * (1 - tdist.cdf(abs(t_slope), n - 2))
-    p_intercept = 2 * (1 - tdist.cdf(abs(t_intercept), n - 2))
-    if ONE_TAILED:
-        p_intercept = p_intercept / 2 if intercept > 0 else 1 - p_intercept / 2
-
-    rows.append(dict(roi=roi, n=n,
-                     b1=slope, t_b1=t_slope, p_b1=p_slope,
-                     b0=intercept, t_b0=t_intercept, p_b0=p_intercept))
-
-tab = pd.DataFrame(rows)
-
-print(f"{'ROI':<8} {'n':>3} {'slope b1':>9} {'p(b1)':>8} "
-      f"{'intercept b0':>13} {'p(b0)':>8}  (b1 two-tailed, b0 "
-      f"{'one' if ONE_TAILED else 'two'}-tailed; uncorrected)")
-print("-" * 66)
-for _, d in tab.iterrows():
-    print(f"{d.roi:<8} {int(d.n):>3} "
-          f"{d.b1:>9.3f} {config.fmt_p(d.p_b1):>8} "
-          f"{d.b0:>13.3f} {config.fmt_p(d.p_b0):>8}")
+    neural = pd.Series({s: rotref_beta(load_rsm(s, roi)) for s in config.SUBJECTS})
+    fit = sm.OLS(neural, sm.add_constant(behav)).fit()
+    (b0, b1), (t0, t1), (p0, p1) = fit.params, fit.tvalues, fit.pvalues
+    rows.append(dict(roi=roi, b1=b1, p_b1=p1,                       # slope, two-tailed
+                     b0=b0, p_b0=p0 / 2 if t0 > 0 else 1 - p0 / 2))  # intercept, one-tailed
+print(pd.DataFrame(rows).to_string(index=False), "\n")
 
 
-# %% Part 2: actual movements in place of the optimal-movement model
-# Otherwise as 2_rsa_stats.py. Optimal hand direction (deg, CONDITIONS order):
-# rotation hand = target + 40, reflection hand = 180 - target.
-TARGET = np.array([70, 110, 250, 290])
-OPTIMAL_HAND = np.r_[(TARGET + 40) % 360, (180 - TARGET) % 360].astype(float)
+# %% (2) RSA refit with actual hand directions in place of the optimal-movement matrix
+OPTIMAL_HAND = np.array([110, 150, 290, 330, 110, 70, 290, 250], dtype=float)  # deg, CONDITIONS order
 
 
-# %% each participant's movement similarity matrix
 def movement_rsm(subject):
-    """cos(theta_i - theta_j) between circular-mean hand directions (all runs; a predictor,
-    so not split by runs)."""
-    b = behavior[behavior.subject == subject].dropna(
-        subset=["initial_heading_deg"])
-    is_ref = (b.manipulation_type == "mirror").to_numpy()
-    pos = np.where(is_ref, 4, 0) + b.which_target.astype(int).to_numpy() - 1
-    err = np.where(is_ref, -1, 1) * b.initial_heading_deg.to_numpy()
-    hand = np.deg2rad(OPTIMAL_HAND[pos] + err)
-    theta = np.array([np.arctan2(np.sin(hand[pos == k]).mean(),
-                                 np.cos(hand[pos == k]).mean())
-                      for k in range(8)])
+    """cos of the angle between trial types' mean hand directions (all runs)."""
+    b = behavior[behavior.subject == subject]
+    err = np.where(b.manipulation_type == "mirror", -1, 1) * b.initial_heading_deg
+    hand = np.deg2rad(OPTIMAL_HAND[b.pos] + err)
+    theta = pd.DataFrame({"s": np.sin(hand), "c": np.cos(hand), "pos": b.pos}).groupby("pos").mean()
+    theta = np.arctan2(theta.s, theta.c).to_numpy()
     return np.cos(theta[:, None] - theta[None, :])
 
 
-MOVE = {s: movement_rsm(s) for s in config.SUBJECTS}
-
-
-def predictors(subject):
-    """The main model, with the empirical matrix in place of Move."""
-    return {"Rot/Ref": config.MODEL_RDMS["Rot/Ref"],
-            "Target": config.MODEL_RDMS["Target"],
-            "Move": MOVE[subject],
-            "Trial": config.MODEL_RDMS["Trial"]}
-
-
-print()
-print("Main RSA refit with actual movements in place of the optimal Move model")
-print("Rot/Ref: one-sample t vs 0, one-tailed, uncorrected")
-
-# %% refit
-refit = []
+rows = []
 for s in config.SUBJECTS:
-    X = predictors(s)
-    D = np.column_stack([np.ones(len(config.TRI[0]))]
-                        + [X[p][config.TRI] for p in config.PREDICTORS])
+    models = dict(config.MODEL_RDMS, Move=movement_rsm(s))
+    D = np.column_stack([np.ones(36)] + [models[p][config.TRI] for p in config.PREDICTORS])
     for roi in ROIS:
-        f = os.path.join(config.DATA, "rsm", f"{s}_{roi.replace(' ', '')}.npy")
-        if os.path.exists(f):
-            coef = np.linalg.lstsq(D, np.load(f)[config.TRI], rcond=None)[0]
-            refit.append(dict(subject=s, roi=roi,
-                             **dict(zip(config.PREDICTORS, coef[1:]))))
-betas = pd.DataFrame(refit)
+        coef = np.linalg.lstsq(D, load_rsm(s, roi)[config.TRI], rcond=None)[0]
+        rows.append(dict(subject=s, roi=roi, rotref=coef[1]))
+refit = pd.DataFrame(rows)
 
-out = []
+rows = []
 for roi in ROIS:
-    v = betas.loc[betas.roi == roi, "Rot/Ref"].to_numpy()
-    t, p = ttest_1samp(v, 0.0, alternative="greater")
-    out.append(dict(roi=roi, n=len(v), t=t, p=p))
-out = pd.DataFrame(out)
-
-for _, d in out.iterrows():
-    print(f"  {d.roi:<9} t({int(d.n) - 1}) = {d.t:5.2f}, "
-          f"{config.fmt_p(d.p)}")
+    t, p = ttest_1samp(refit.loc[refit.roi == roi, "rotref"], 0, alternative="greater")
+    rows.append(dict(roi=roi, t=t, p=p))
+print(pd.DataFrame(rows).to_string(index=False))

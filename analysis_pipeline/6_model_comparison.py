@@ -1,69 +1,42 @@
 #!/usr/bin/env python3
-# Full vs reduced (no Rot/Ref) RSA model against the noise ceiling, Fig S1.
-# Every fit includes an intercept (see config.py).
-
-
-# %%
+# Full vs reduced (no Rot/Ref) RSA model: adjusted R-squared, noise ceiling and summed delta-AIC (Fig S1).
 import os
 
 import numpy as np
+import pandas as pd
 
 import config
 
 
-def adjusted_r2(y, X):
+def fit(y, X):
     """OLS with an intercept; returns (adjusted R-squared, RSS)."""
     D = np.column_stack([np.ones(len(y)), X])
     resid = y - D @ np.linalg.lstsq(D, y, rcond=None)[0]
-    rss = float(resid @ resid)
+    rss = resid @ resid
     n, k = len(y), X.shape[1]
-    r2 = 1 - rss / float(((y - y.mean()) ** 2).sum())
+    r2 = 1 - rss / ((y - y.mean()) ** 2).sum()
     return 1 - (1 - r2) * (n - 1) / (n - k - 1), rss
 
 
-def sem(v):
-    return np.std(v, ddof=1) / np.sqrt(len(v))
+full = np.column_stack([config.MODEL_RDMS[p][config.TRI] for p in config.PREDICTORS])
+reduced = np.column_stack([config.MODEL_RDMS[p][config.TRI] for p in config.PREDICTORS
+                           if p != "Rot/Ref"])
 
-
-# %% design matrices: the 36 upper-triangle entries, including the diagonal
-full = np.column_stack([config.MODEL_RDMS[p][config.TRI]
-                        for p in config.PREDICTORS])
-reduced = np.column_stack([config.MODEL_RDMS[p][config.TRI]
-                           for p in config.PREDICTORS if p != "Rot/Ref"])
-
-# %%
-print("Model comparison: full vs reduced (no Rot/Ref), Fig S1")
-print(f"{'ROI':<9} {'n':>3} {'adjR2 full':>17} {'adjR2 red':>16} "
-      f"{'ceiling':>8} {'sum dAIC':>9}")
-print("-" * 84)
-
+rows = []
 for roi in config.MAIN_ROIS:
-    V = np.vstack([np.load(f)[config.TRI] for f in
-                   (os.path.join(config.DATA, "rsm",
-                                 f"{s}_{roi.replace(' ', '')}.npy")
-                    for s in config.SUBJECTS)
-                   if os.path.exists(f)])
+    V = np.vstack([np.load(os.path.join(config.DATA, "rsm", f"{s}_{roi.replace(' ', '')}.npy"))[config.TRI]
+                   for s in config.SUBJECTS])
     group = V.mean(axis=0)
-
-    # Upper noise ceiling (Nili et al. 2014): fit on the group mean including this subject.
     adj_f, adj_r, ceiling, d_aic = [], [], [], []
-    for i, y in enumerate(V):
-        af, rss_f = adjusted_r2(y, full)
-        ar, rss_r = adjusted_r2(y, reduced)
+    for y in V:
+        af, rss_f = fit(y, full)
+        ar, rss_r = fit(y, reduced)
         adj_f.append(af)
         adj_r.append(ar)
-        ceiling.append(adjusted_r2(y, group[:, None])[0])
-        # delta-AIC = AIC(reduced) - AIC(full)
-        d_aic.append(len(y) * np.log(rss_r / rss_f) - 2)
-
-    # Summed over participants, not averaged.
-    total = sum(d_aic)
-
-    print(f"{roi:<9} {len(V):>3} "
-          f"{np.mean(adj_f):>10.3f} ±{sem(adj_f):<5.3f} "
-          f"{np.mean(adj_r):>9.3f} ±{sem(adj_r):<5.3f} "
-          f"{np.mean(ceiling):>8.3f} "
-          f"{total:>9.1f}")
-
-print("\nAdjusted R-squared: mean ± 1 s.e.m. across participants. "
-      "Positive summed delta-AIC favors the full model.")
+        ceiling.append(fit(y, group[:, None])[0])       # noise ceiling: group mean including this participant
+        d_aic.append(len(y) * np.log(rss_r / rss_f) - 2)  # AIC(reduced) - AIC(full)
+    sem = lambda v: np.std(v, ddof=1) / np.sqrt(len(v))
+    rows.append(dict(roi=roi, adjR2_full=np.mean(adj_f), sem_full=sem(adj_f),
+                     adjR2_reduced=np.mean(adj_r), sem_reduced=sem(adj_r),
+                     ceiling=np.mean(ceiling), sum_dAIC=np.sum(d_aic)))
+print(pd.DataFrame(rows).to_string(index=False))
